@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>樹洞</title>
+    <style>
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #0a0a14;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #treeSvg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        #hollowInner {
+            transition: all 2s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 這裡會由 JS 載入您的 tree.svg -->
+        <div id="treeContainer"></div>
+    </div>
+
+    <script>
+        // 載入 tree.svg 並加入樹洞
+        fetch('/static/tree.svg')
+            .then(response => response.text())
+            .then(svgContent => {
+                // 載入 SVG
+                const container = document.getElementById('treeContainer');
+                container.innerHTML = svgContent;
+
+                // 取得 SVG 元素
+                const svg = container.querySelector('svg');
+
+                // 加入濾鏡定義
+                const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+                defs.innerHTML = `
+                    <filter id="hollowGlow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
+                    </filter>
+                `;
+                svg.insertBefore(defs, svg.firstChild);
+
+                // 加入樹洞
+                const hollow = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                hollow.setAttribute("transform", "translate(560,800)");
+                hollow.innerHTML = `
+                    <path d="M-40 -50
+                            C-50 -70 -50 -90 -30 -250
+                            C-10 -110 10 -110 30 -250
+                            C50 -90 50 -70 40 -40
+                            C20 -20 -20 -20 -40 -50Z"
+                          id="hollowInner"
+                          fill="#000000"
+                          filter="url(#hollowGlow)"/>
+                `;
+                svg.appendChild(hollow);
+
+                // 開始監聽顏色變化
+                startColorUpdates();
+            });
+
+        // 更新樹洞顏色
+        function updateHollowLight(r, g, b) {
+            const hollowInner = document.getElementById('hollowInner');
+            if (!hollowInner) return;
+
+            if (r === 0 && g === 0 && b === 0) {
+                hollowInner.style.fill = '#000000';
+                hollowInner.style.filter = 'none';
+                return;
+            }
+
+            const color = `rgb(${r}, ${g}, ${b})`;
+            hollowInner.style.fill = color;
+        }
+
+        // 讀取顏色配置
+        function fetchColor() {
+            fetch('/static/config/color.json')
+                .then(response => response.json())
+                .then(data => {
+                    updateHollowLight(data.R, data.G, data.B);
+                })
+                .catch(error => {
+                    console.error('Error fetching color:', error);
+                    updateHollowLight(0, 0, 0);
+                });
+        }
+
+        // 啟動顏色更新
+        function startColorUpdates() {
+            fetchColor(); // 立即執行一次
+            setInterval(fetchColor, 5000); // 每 5 秒更新一次
+        }
+    </script>
+</body>
+</html>
